@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: #050505;
+  overflow-x: hidden;
+}
+
+/* Custom transitions for the smooth blur effect */
+.blur-transition {
+  transition: filter 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s ease;
+}
