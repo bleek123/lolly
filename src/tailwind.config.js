@@ -3,13 +3,19 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    "./*.{js,ts,jsx,tsx}", // Added this to find files in the root
   ],
   theme: {
     extend: {
       animation: {
-        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'shiver': 'shiver 0.2s ease-in-out infinite',
       },
+      keyframes: {
+        shiver: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '25%': { transform: 'translateX(-1px)' },
+          '75%': { transform: 'translateX(1px)' },
+        }
+      }
     },
   },
   plugins: [],
