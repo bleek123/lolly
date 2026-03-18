@@ -13,13 +13,11 @@ export default function App() {
   useEffect(() => {
     fetchStatus();
     fetchPhotos();
-
-    const statusSubscription = supabase.channel('vibe-room')
+    const channel = supabase.channel('vibe-room')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'status' }, 
-      payload => setVibe(payload.new.current_vibe))
+      (payload) => setVibe(payload.new.current_vibe))
       .subscribe();
-
-    return () => supabase.removeChannel(statusSubscription);
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchStatus = async () => {
@@ -33,7 +31,7 @@ export default function App() {
   };
 
   const fetchPhotos = async () => {
-    const { data } = await supabase.storage.from('photos').list('', { limit: 10, sortBy: { column: 'created_at', order: 'desc' } });
+    const { data } = await supabase.storage.from('photos').list('', { limit: 6, sortBy: { column: 'created_at', order: 'desc' } });
     if (data) {
       const urls = data.map(f => supabase.storage.from('photos').getPublicUrl(f.name).data.publicUrl);
       setPhotos(urls);
@@ -41,45 +39,67 @@ export default function App() {
   };
 
   const uploadPhoto = async (e) => {
+    if (!e.target.files[0]) return;
     setUploading(true);
     const file = e.target.files[0];
     const fileName = `${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from('photos').upload(fileName, file);
-    if (!error) fetchPhotos();
+    await supabase.storage.from('photos').upload(fileName, file);
+    await fetchPhotos();
     setUploading(false);
   };
 
   return (
-    <div className={`min-h-screen transition-all duration-1000 flex flex-col items-center p-6 ${vibe === 'Safe' ? 'bg-cyan-900' : 'bg-slate-900'} text-white font-sans`}>
-      <h1 className="text-2xl font-bold text-pink-300 mt-8">Lolly & You</h1>
-
-      {/* VIBE SECTION */}
-      <div className="w-full max-w-sm mt-10 grid grid-cols-2 gap-4">
-        <button onClick={() => updateVibe('Cuddly')} className={`p-6 rounded-3xl border-2 transition-all ${vibe === 'Cuddly' ? 'bg-pink-600 border-white shadow-lg scale-105' : 'bg-slate-800 border-transparent opacity-50'}`}>🧸 Cuddly</button>
-        <button onClick={() => updateVibe('Intimate')} className={`p-6 rounded-3xl border-2 transition-all ${vibe === 'Intimate' ? 'bg-red-600 border-white shadow-lg scale-105' : 'bg-slate-800 border-transparent opacity-50'}`}>✨ Intimate</button>
+    <div className={`min-h-screen transition-all duration-700 flex flex-col items-center px-6 py-12 
+      ${vibe === 'Safe' ? 'bg-[#020617]' : 'bg-black'} text-white font-sans`}>
+      
+      <div className="text-center mb-12">
+        <h1 className="text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-tr from-pink-500 via-rose-500 to-violet-600">
+          Lolly
+        </h1>
+        <p className="text-[10px] uppercase tracking-[0.5em] text-slate-500 mt-4 font-bold opacity-60">Private Sync Active</p>
       </div>
 
-      {/* PHOTO VAULT SECTION */}
-      <div className="w-full max-w-sm mt-12 bg-slate-800/50 p-6 rounded-[2.5rem] border border-white/5">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-pink-200">Private Vault</h3>
-          <label className="bg-pink-500 p-2 rounded-full cursor-pointer hover:bg-pink-400 transition-colors">
-            <span className="text-lg">{uploading ? '⌛' : '📸'}</span>
-            <input type="file" accept="image/*" onChange={uploadPhoto} hidden disabled={uploading} />
-          </label>
+      <div className="w-full max-w-sm space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <button onClick={() => updateVibe('Cuddly')} 
+            className={`aspect-square rounded-[3.5rem] transition-all duration-500 flex flex-col items-center justify-center border-2 
+            ${vibe === 'Cuddly' ? 'bg-pink-500/20 border-pink-500 shadow-lg scale-105' : 'bg-white/5 border-transparent opacity-40 hover:opacity-100'}`}>
+            <span className="text-5xl mb-3">🧸</span>
+            <span className="text-[11px] font-black uppercase tracking-widest text-pink-200">Cuddly</span>
+          </button>
+
+          <button onClick={() => updateVibe('Intimate')} 
+            className={`aspect-square rounded-[3.5rem] transition-all duration-500 flex flex-col items-center justify-center border-2 
+            ${vibe === 'Intimate' ? 'bg-rose-500/20 border-rose-500 shadow-lg scale-105' : 'bg-white/5 border-transparent opacity-40 hover:opacity-100'}`}>
+            <span className="text-5xl mb-3">✨</span>
+            <span className="text-[11px] font-black uppercase tracking-widest text-rose-200">Intimate</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {photos.map((url, i) => (
-            <div key={i} className="aspect-square rounded-xl overflow-hidden bg-slate-700 relative group">
-              <img src={url} className="w-full h-full object-cover blur-md group-active:blur-0 transition-all cursor-pointer" alt="Private" />
-            </div>
-          ))}
-          {photos.length === 0 && <div className="col-span-3 py-10 text-center text-[10px] text-slate-500 uppercase tracking-widest">No photos yet...</div>}
+        <div className="bg-white/5 border border-white/10 rounded-[3rem] p-8 backdrop-blur-3xl shadow-2xl relative">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Memory Vault</h2>
+            <label className="bg-white text-black h-12 w-12 rounded-2xl flex items-center justify-center cursor-pointer hover:scale-110 active:scale-90 transition-all shadow-lg">
+              <span className="text-2xl font-light">{uploading ? '...' : '+'}</span>
+              <input type="file" accept="image/*" onChange={uploadPhoto} hidden />
+            </label>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-3">
+            {photos.map((url, i) => (
+              <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-black/50 border border-white/5 group relative">
+                <img src={url} className="w-full h-full object-cover blur-3xl group-active:blur-0 transition-all duration-1000 scale-125" alt="" />
+              </div>
+            ))}
+          </div>
         </div>
+
+        <button onClick={() => updateVibe('Safe')} 
+          className={`w-full py-6 rounded-[2.5rem] font-black text-[11px] uppercase tracking-[0.5em] transition-all border-2
+          ${vibe === 'Safe' ? 'bg-cyan-500 border-cyan-400 text-white shadow-xl' : 'bg-white/5 border-transparent text-slate-600'}`}>
+          {vibe === 'Safe' ? '🛡️ Shields Up' : 'Request Safe Space'}
+        </button>
       </div>
-
-      <button onClick={() => updateVibe('Safe')} className="mt-8 text-[10px] uppercase tracking-widest text-slate-500 hover:text-cyan-400 transition-colors italic">Activate Safe Space 🛡️</button>
     </div>
   );
 }

@@ -1,100 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://tfcxplxafpiihetdrirf.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_BiRjXdxVbBooeNU8DlIY7A_5_wauSnQ';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-export default function App() {
-  const [vibe, setVibe] = useState('Neutral');
-  const [photos, setPhotos] = useState([]);
-  const [uploading, setUploading] = useState(false);
-
-  useEffect(() => {
-    fetchStatus();
-    fetchPhotos();
-    const statusSubscription = supabase.channel('vibe-room')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'status' }, 
-      payload => setVibe(payload.new.current_vibe))
-      .subscribe();
-    return () => supabase.removeChannel(statusSubscription);
-  }, []);
-
-  const fetchStatus = async () => {
-    const { data } = await supabase.from('status').select('current_vibe').eq('id', 1).single();
-    if (data) setVibe(data.current_vibe);
-  };
-
-  const updateVibe = async (newVibe) => {
-    setVibe(newVibe);
-    await supabase.from('status').update({ current_vibe: newVibe }).eq('id', 1);
-  };
-
-  const fetchPhotos = async () => {
-    const { data } = await supabase.storage.from('photos').list('', { limit: 9, sortBy: { column: 'created_at', order: 'desc' } });
-    if (data) {
-      const urls = data.map(f => supabase.storage.from('photos').getPublicUrl(f.name).data.publicUrl);
-      setPhotos(urls);
-    }
-  };
-
-  const uploadPhoto = async (e) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    setUploading(true);
-    const file = e.target.files[0];
-    const fileName = `${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from('photos').upload(fileName, file);
-    if (!error) fetchPhotos();
-    setUploading(false);
-  };
-
-  return (
-    <div className={`min-h-screen transition-colors duration-1000 flex flex-col items-center px-6 py-10 
-      ${vibe === 'Safe' ? 'bg-[#0f172a]' : 'bg-[#020617]'} text-slate-100`}>
-      
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">
-          Lolly
-        </h1>
-        <div className="flex items-center justify-center gap-2 mt-2">
-          <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${vibe === 'Safe' ? 'bg-cyan-400' : 'bg-green-400'}`} />
-          <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-bold">Encrypted Sync</span>
-        </div>
-      </div>
-
-      <div className="w-full max-md space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => updateVibe('Cuddly')} className={`p-8 rounded-[2.5rem] transition-all border-2 ${vibe === 'Cuddly' ? 'bg-pink-500/10 border-pink-500 shadow-lg' : 'bg-slate-900/40 border-slate-800'}`}>
-            <span className="text-5xl block mb-4">🧸</span>
-            <span className="text-xs font-black uppercase tracking-widest">Cuddly</span>
-          </button>
-          <button onClick={() => updateVibe('Intimate')} className={`p-8 rounded-[2.5rem] transition-all border-2 ${vibe === 'Intimate' ? 'bg-rose-500/10 border-rose-500 shadow-lg' : 'bg-slate-900/40 border-slate-800'}`}>
-            <span className="text-5xl block mb-4">✨</span>
-            <span className="text-xs font-black uppercase tracking-widest">Intimate</span>
-          </button>
-        </div>
-
-        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-[3rem] backdrop-blur-xl">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Vault</h3>
-            <label className="bg-white/5 p-4 rounded-2xl cursor-pointer hover:bg-white/10 border border-white/5">
-              <span className="text-xl">{uploading ? '⏳' : '📸'}</span>
-              <input type="file" accept="image/*" onChange={uploadPhoto} hidden disabled={uploading} />
-            </label>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {photos.map((url, i) => (
-              <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-slate-950/50 border border-white/5 relative group">
-                <img src={url} className="w-full h-full object-cover blur-xl hover:blur-0 transition-all duration-500 cursor-pointer" alt="Vault" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button onClick={() => updateVibe('Safe')} className={`w-full py-5 rounded-[2rem] border transition-all flex items-center justify-center gap-3 ${vibe === 'Safe' ? 'bg-cyan-500 border-cyan-400' : 'bg-slate-900/40 border-slate-800 text-slate-500'}`}>
-          🛡️ <span className="text-[10px] font-black uppercase tracking-widest">{vibe === 'Safe' ? 'Safe Space Active' : 'Request Safe Space'}</span>
-        </button>
-      </div>
-    </div>
-  );
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      animation: {
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
+      backdropBlur: {
+        xs: '2px',
+      }
+    },
+  },
+  plugins: [],
 }
