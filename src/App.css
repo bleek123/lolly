@@ -1,184 +1,100 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
+const SUPABASE_URL = 'https://tfcxplxafpiihetdrirf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_BiRjXdxVbBooeNU8DlIY7A_5_wauSnQ';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-.hero {
-  position: relative;
+export default function App() {
+  const [vibe, setVibe] = useState('Neutral');
+  const [photos, setPhotos] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
+  useEffect(() => {
+    fetchStatus();
+    fetchPhotos();
+    const statusSubscription = supabase.channel('vibe-room')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'status' }, 
+      payload => setVibe(payload.new.current_vibe))
+      .subscribe();
+    return () => supabase.removeChannel(statusSubscription);
+  }, []);
 
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
+  const fetchStatus = async () => {
+    const { data } = await supabase.from('status').select('current_vibe').eq('id', 1).single();
+    if (data) setVibe(data.current_vibe);
+  };
 
-  .framework,
-  .vite {
-    position: absolute;
-  }
+  const updateVibe = async (newVibe) => {
+    setVibe(newVibe);
+    await supabase.from('status').update({ current_vibe: newVibe }).eq('id', 1);
+  };
 
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
+  const fetchPhotos = async () => {
+    const { data } = await supabase.storage.from('photos').list('', { limit: 9, sortBy: { column: 'created_at', order: 'desc' } });
+    if (data) {
+      const urls = data.map(f => supabase.storage.from('photos').getPublicUrl(f.name).data.publicUrl);
+      setPhotos(urls);
     }
-  }
+  };
 
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
+  const uploadPhoto = async (e) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setUploading(true);
+    const file = e.target.files[0];
+    const fileName = `${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from('photos').upload(fileName, file);
+    if (!error) fetchPhotos();
+    setUploading(false);
+  };
 
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
+  return (
+    <div className={`min-h-screen transition-colors duration-1000 flex flex-col items-center px-6 py-10 
+      ${vibe === 'Safe' ? 'bg-[#0f172a]' : 'bg-[#020617]'} text-slate-100`}>
+      
+      <div className="text-center mb-10">
+        <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">
+          Lolly
+        </h1>
+        <div className="flex items-center justify-center gap-2 mt-2">
+          <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${vibe === 'Safe' ? 'bg-cyan-400' : 'bg-green-400'}`} />
+          <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-bold">Encrypted Sync</span>
+        </div>
+      </div>
 
-#docs {
-  border-right: 1px solid var(--border);
+      <div className="w-full max-md space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <button onClick={() => updateVibe('Cuddly')} className={`p-8 rounded-[2.5rem] transition-all border-2 ${vibe === 'Cuddly' ? 'bg-pink-500/10 border-pink-500 shadow-lg' : 'bg-slate-900/40 border-slate-800'}`}>
+            <span className="text-5xl block mb-4">🧸</span>
+            <span className="text-xs font-black uppercase tracking-widest">Cuddly</span>
+          </button>
+          <button onClick={() => updateVibe('Intimate')} className={`p-8 rounded-[2.5rem] transition-all border-2 ${vibe === 'Intimate' ? 'bg-rose-500/10 border-rose-500 shadow-lg' : 'bg-slate-900/40 border-slate-800'}`}>
+            <span className="text-5xl block mb-4">✨</span>
+            <span className="text-xs font-black uppercase tracking-widest">Intimate</span>
+          </button>
+        </div>
 
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
+        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-[3rem] backdrop-blur-xl">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Vault</h3>
+            <label className="bg-white/5 p-4 rounded-2xl cursor-pointer hover:bg-white/10 border border-white/5">
+              <span className="text-xl">{uploading ? '⏳' : '📸'}</span>
+              <input type="file" accept="image/*" onChange={uploadPhoto} hidden disabled={uploading} />
+            </label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {photos.map((url, i) => (
+              <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-slate-950/50 border border-white/5 relative group">
+                <img src={url} className="w-full h-full object-cover blur-xl hover:blur-0 transition-all duration-500 cursor-pointer" alt="Vault" />
+              </div>
+            ))}
+          </div>
+        </div>
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+        <button onClick={() => updateVibe('Safe')} className={`w-full py-5 rounded-[2rem] border transition-all flex items-center justify-center gap-3 ${vibe === 'Safe' ? 'bg-cyan-500 border-cyan-400' : 'bg-slate-900/40 border-slate-800 text-slate-500'}`}>
+          🛡️ <span className="text-[10px] font-black uppercase tracking-widest">{vibe === 'Safe' ? 'Safe Space Active' : 'Request Safe Space'}</span>
+        </button>
+      </div>
+    </div>
+  );
 }
